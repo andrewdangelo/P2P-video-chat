@@ -1,21 +1,36 @@
+import { useState } from 'react';
 import {
   AppBar,
   Toolbar,
   Typography,
   Container,
   Button,
-  Box,
   Grid,
   Card,
   CardContent,
-  Stack
+  Stack,
 } from '@mui/material';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { joinCall } from '../features/call/callSlice';
+import { v4 as uuidv4 } from 'uuid';
+
+import JoinModal from '../components/Modals/JoinModal';
 
 export default function Home() {
+  const [joinOpen, setJoinOpen] = useState(false);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const handleStartCall = () => {
+    const roomId = uuidv4();
+    dispatch(joinCall({ callId: roomId, displayName: '', videoOn: true, audioOn: true }));
+    navigate(`/lobby/${roomId}`);
+  };
+
+
   return (
     <>
-      {/* NavBar */}
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div">
@@ -24,7 +39,6 @@ export default function Home() {
         </Toolbar>
       </AppBar>
 
-      {/* Welcome Section */}
       <Container maxWidth="md" sx={{ mt: 8, textAlign: 'center' }}>
         <Typography variant="h4" gutterBottom>
           Welcome to Seamless Video Calling
@@ -33,30 +47,16 @@ export default function Home() {
           Create or join a room and start chatting with privacy and simplicity.
         </Typography>
 
-        {/* Two buttons side by side */}
         <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 3 }}>
-          <Button
-            component={Link}
-            to="/lobby"
-            variant="contained"
-            color="primary"
-            size="large"
-          >
+          <Button variant="contained" color="primary" size="large" onClick={handleStartCall}>
             Start Call
           </Button>
-          <Button
-            component={Link}
-            to="/lobby"
-            variant="outlined"
-            color="primary"
-            size="large"
-          >
+          <Button variant="outlined" color="primary" size="large" onClick={() => setJoinOpen(true)}>
             Join Call
           </Button>
         </Stack>
       </Container>
 
-      {/* Steps Section */}
       <Container maxWidth="lg" sx={{ mt: 10, mb: 8 }}>
         <Grid container spacing={4} justifyContent="center">
           <Grid item xs={12} sm={6} md={4}>
@@ -99,6 +99,9 @@ export default function Home() {
           </Grid>
         </Grid>
       </Container>
+
+      {/* Join Call Modal */}
+      <JoinModal open={joinOpen} onClose={() => setJoinOpen(false)} />
     </>
   );
 }

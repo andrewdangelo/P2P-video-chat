@@ -117,6 +117,9 @@ export default function VideoCall() {
   }, [restartIce]);
 
   useEffect(() => {
+
+    if (!callId) return;
+
     console.log('[VideoCall] Initializing...');
     socketRef.current = io(SOCKET_URL);
 
@@ -214,7 +217,6 @@ export default function VideoCall() {
       remoteStream.current = null;
       socketRef.current = null;
 
-      dispatch(leaveCall());
       console.log('[Cleanup] Resources released');
     };
   }, [callId, dispatch, createPeerConnection]);
@@ -247,20 +249,39 @@ export default function VideoCall() {
     }
   };
 
-  const handleLeaveCall = () => {
+    const handleLeaveCall = () => {
     console.log('[Call] Leaving call');
+
+    // Stop media tracks if present
+    if (localStream.current) {
+        localStream.current.getTracks().forEach(track => {
+        console.log(`[Media] Stopping local ${track.kind} track`);
+        track.stop();
+        });
+    }
+
+    if (remoteStream.current) {
+        remoteStream.current.getTracks().forEach(track => {
+        console.log(`[Media] Stopping remote ${track.kind} track`);
+        track.stop();
+        });
+    }
+
+    // Close peer connection and socket
     peerConnection.current?.close();
     socketRef.current?.disconnect();
 
-    localStream.current?.getTracks().forEach(track => track.stop());
-    remoteStream.current?.getTracks().forEach(track => track.stop());
-
+    // Clear refs
     peerConnection.current = null;
-    remoteStream.current = null;
     localStream.current = null;
+    remoteStream.current = null;
+    socketRef.current = null;
+
+    dispatch(leaveCall());
 
     navigate('/');
-  };
+    };
+
 
   return (
     <Container maxWidth="lg">
