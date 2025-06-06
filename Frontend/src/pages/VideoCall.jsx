@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Container, Typography, Box, Button, Stack } from '@mui/material';
 import { useSelector, useDispatch } from 'react-redux';
 import { leaveCall, setVideoEnabled, setAudioEnabled } from '../features/call/callSlice';
@@ -20,6 +20,7 @@ export default function VideoCall() {
   const localStream = useRef(null);
   const remoteStream = useRef(null);
   const [status, setStatus] = useState('Initializing...');
+  const [remoteVideoEnabled, setRemoteVideoEnabled] = useState(true);
 
   const dispatch = useDispatch();
 
@@ -123,6 +124,19 @@ export default function VideoCall() {
           console.log('[ICE] Received ICE candidate');
           peerConnection.current?.addIceCandidate(new RTCIceCandidate(candidate));
         });
+
+        // Step 7: Handle peer media toggle
+        socketRef.current.on('media-toggle', ({ type, enabled }) => {
+          console.log(`[MEDIA] Peer toggled ${type}: ${enabled ? 'on' : 'off'}`);
+          if (type === 'video') {
+            setRemoteVideoEnabled(enabled);
+          } else if (type === 'audio') {
+            if (remoteStream.current) {
+              const track = remoteStream.current.getAudioTracks()[0];
+              if (track) track.enabled = enabled;
+            }
+          }
+        });
       })
       .catch(err => {
         console.error('[Media] Failed to get user media:', err);
@@ -149,9 +163,33 @@ export default function VideoCall() {
 
       console.log('[Cleanup] Resources released');
     };
-  }, [callId]);
+  }, [callId, dispatch, createPeerConnection]);
 
-  const createPeerConnection = (otherUserId, isInitiator) => {
+  const restartIce = useCallback(() => {
+    const pc = peerConnection.current;
+    const to = currentPeerId.current;
+
+    if (!pc || !to) {
+      console.warn('[ICE] Cannot restart ICE — peer connection or peer ID missing');
+      return;
+    }
+
+    console.log('[ICE] Restarting ICE...');
+    pc.createOffer({ iceRestart: true })
+      .then(offer => pc.setLocalDescription(offer))
+      .then(() => {
+        console.log('[ICE] Sending ICE restart offer');
+        socketRef.current.emit('offer', {
+          offer: pc.localDescription,
+          to
+        });
+      })
+      .catch(err => {
+        console.error('[ICE] Failed to restart ICE:', err);
+      });
+  }, []);
+
+  const createPeerConnection = useCallback((otherUserId, isInitiator) => {
     if (peerConnection.current) {
       console.warn('[WebRTC] Peer connection already exists — skipping creation');
       return;
@@ -219,33 +257,8 @@ export default function VideoCall() {
           });
         });
     }
-  };
+  }, [restartIce]);
 
-  const restartIce = () => {
-    const pc = peerConnection.current;
-    const to = currentPeerId.current;
-
-    if (!pc || !to) {
-      console.warn('[ICE] Cannot restart ICE — peer connection or peer ID missing');
-      return;
-    }
-
-    console.log('[ICE] Restarting ICE...');
-    pc.createOffer({ iceRestart: true })
-      .then(offer => {
-        return pc.setLocalDescription(offer);
-      })
-      .then(() => {
-        console.log('[ICE] Sending ICE restart offer');
-        socketRef.current.emit('offer', {
-          offer: pc.localDescription,
-          to
-        });
-      })
-      .catch(err => {
-        console.error('[ICE] Failed to restart ICE:', err);
-      });
-  };
 
     const toggleVideo = () => {
     const videoTrack = localStream.current?.getVideoTracks()[0];
@@ -339,7 +352,7 @@ export default function VideoCall() {
           autoPlay
           playsInline
           width="300"
-          style={{ borderRadius: 8, background: '#000' }}
+          style={{ borderRadius: 8, background: '#000', display: remoteVideoEnabled ? 'block' : 'none' }}
         />
       </Box>
     </Container>
