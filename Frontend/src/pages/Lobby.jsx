@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 
 import { useDispatch } from 'react-redux';
-import { joinCall } from '../features/call/callSlice';
+import { joinCall, leaveCall } from '../features/call/callSlice';
 
 export default function Lobby() {
   const videoRef = useRef(null);
@@ -28,25 +28,26 @@ export default function Lobby() {
     let mediaStream;
 
     async function getMedia() {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
+      mediaStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
-        });
-        setStream(mediaStream);
-        if (videoRef.current) {
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        }
+      }
     }
 
     getMedia();
 
     return () => {
-        if (mediaStream) {
+      if (mediaStream) {
         mediaStream.getTracks().forEach(track => track.stop());
-        console.log('[Lobby] Media stream stopped on unmount');
-        }
+        console.log('[Lobby] Stopped local media tracks on unmount');
+      }
+      dispatch(leaveCall());
     };
-    }, []);
+  }, [dispatch]);
 
 
   const handleToggleVideo = () => {
