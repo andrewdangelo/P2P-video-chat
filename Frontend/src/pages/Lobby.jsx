@@ -12,6 +12,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 
+import { useDispatch } from 'react-redux';
+import { joinCall } from '../features/call/callSlice';
+
 export default function Lobby() {
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
@@ -19,28 +22,33 @@ export default function Lobby() {
   const [videoOn, setVideoOn] = useState(true);
   const [audioOn, setAudioOn] = useState(true);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  // Request camera/mic on mount
   useEffect(() => {
+    let mediaStream;
+
     async function getMedia() {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        mediaStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
-      });
-      setStream(mediaStream);
-      if (videoRef.current) {
+        });
+        setStream(mediaStream);
+        if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-      }
+        }
     }
+
     getMedia();
 
     return () => {
-      // Cleanup
-      stream?.getTracks().forEach(track => track.stop());
+        if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        console.log('[Lobby] Media stream stopped on unmount');
+        }
     };
-  }, []);
+    }, []);
 
-  // Toggle video track
+
   const handleToggleVideo = () => {
     const videoTrack = stream?.getVideoTracks()[0];
     if (videoTrack) {
@@ -49,7 +57,6 @@ export default function Lobby() {
     }
   };
 
-  // Toggle audio track
   const handleToggleAudio = () => {
     const audioTrack = stream?.getAudioTracks()[0];
     if (audioTrack) {
@@ -58,11 +65,18 @@ export default function Lobby() {
     }
   };
 
-  // Start call: navigate to /call/:callId with user name
   const handleStartCall = () => {
     if (!name.trim()) return;
     const roomId = uuidv4();
-    navigate(`/call/${roomId}`, { state: { displayName: name } });
+
+    dispatch(joinCall({
+      callId: roomId,
+      displayName: name,
+      videoOn,
+      audioOn
+    }));
+
+    navigate(`/call/${roomId}`);
   };
 
   return (

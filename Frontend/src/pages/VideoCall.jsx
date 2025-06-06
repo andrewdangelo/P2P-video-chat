@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { Container, Typography, Box, Button, Stack } from '@mui/material';
+import { useSelector, useDispatch } from 'react-redux';
+import { leaveCall, setVideoEnabled, setAudioEnabled } from '../features/call/callSlice';
+
 import { io } from 'socket.io-client';
 
 const SOCKET_URL = import.meta.env.VITE_SIGNALING_SERVER_URL;
 
 export default function VideoCall() {
-  const { callId } = useParams();
-  const { state } = useLocation();
+  const displayName = useSelector(state => state.call.displayName);
+  const callId = useSelector(state => state.call.callId);
+  const videoOn = useSelector(state => state.call.videoOn);
+  const audioOn = useSelector(state => state.call.audioOn);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const peerConnection = useRef(null);
@@ -15,8 +20,9 @@ export default function VideoCall() {
   const localStream = useRef(null);
   const remoteStream = useRef(null);
   const [status, setStatus] = useState('Initializing...');
-  const [videoOn, setVideoOn] = useState(true);
-  const [audioOn, setAudioOn] = useState(true);
+
+  const dispatch = useDispatch();
+
 
   const navigate = useNavigate();
 
@@ -42,7 +48,10 @@ export default function VideoCall() {
         console.log('[Media] Local media stream acquired');
 
         // Step 2: Join the room
-        socketRef.current.emit('join-room', { roomId: callId });
+        if (socketRef.current) {
+            socketRef.current.emit('join-room', { roomId: callId });
+        }
+
 
         // Step 3: Handle peer discovery
         socketRef.current.on('other-user', (otherUserId) => {
@@ -122,16 +131,21 @@ export default function VideoCall() {
 
     return () => {
       console.log('[Cleanup] Disconnecting...');
-      socketRef.current?.disconnect();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+    }
+
       localStream.current?.getTracks().forEach(track => track.stop());
       remoteStream.current?.getTracks().forEach(track => track.stop());
       peerConnection.current?.close();
 
       // Final cleanup: release references
-      socketRef.current = null;
       peerConnection.current = null;
       localStream.current = null;
       remoteStream.current = null;
+
+      dispatch(leaveCall());
 
       console.log('[Cleanup] Resources released');
     };
@@ -237,7 +251,7 @@ export default function VideoCall() {
     const videoTrack = localStream.current?.getVideoTracks()[0];
     if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
-        setVideoOn(videoTrack.enabled);
+        dispatch(setVideoEnabled(videoTrack.enabled));
         console.log(`[Media] Camera ${videoTrack.enabled ? 'enabled' : 'disabled'}`);
 
         socketRef.current.emit('media-toggle', {
@@ -253,7 +267,7 @@ export default function VideoCall() {
         const audioTrack = localStream.current?.getAudioTracks()[0];
         if (audioTrack) {
             audioTrack.enabled = !audioTrack.enabled;
-            setAudioOn(audioTrack.enabled);
+            dispatch(setAudioEnabled(audioTrack.enabled));
             console.log(`[Media] Mic ${audioTrack.enabled ? 'enabled' : 'disabled'}`);
 
             socketRef.current.emit('media-toggle', {
@@ -290,7 +304,7 @@ export default function VideoCall() {
           Room: {callId}
         </Typography>
         <Typography variant="subtitle2" color="text.secondary">
-          {state?.displayName ? `You are: ${state.displayName}` : ''}
+        {displayName ? `You are: ${displayName}` : ''}
         </Typography>
         <Typography sx={{ mt: 1 }} color="text.secondary">
           {status}
