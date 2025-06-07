@@ -20,8 +20,13 @@ export default function VideoCall() {
   const localVideoRef = useRef(null);
   const localStream = useRef(null);
   const peerConnections = useRef({});
+  const remotePeersRef = useRef({});
   const [remotePeers, setRemotePeers] = useState({}); // { peerId: { stream, videoEnabled } }
   const [status, setStatus] = useState('Initializing...');
+
+  useEffect(() => {
+    remotePeersRef.current = remotePeers;
+  }, [remotePeers]);
 
   const restartIce = useCallback(() => {
     Object.entries(peerConnections.current).forEach(([id, pc]) => {
@@ -56,7 +61,9 @@ export default function VideoCall() {
         const existing = prev[peerId] || { stream: new MediaStream(), videoEnabled: true };
         const stream = existing.stream;
         e.streams[0].getTracks().forEach(track => stream.addTrack(track));
-        return { ...prev, [peerId]: { ...existing, stream } };
+        const updated = { ...prev, [peerId]: { ...existing, stream } };
+        remotePeersRef.current = updated;
+        return updated;
       });
     };
 
@@ -110,6 +117,7 @@ export default function VideoCall() {
             const peer = prev[id];
             if (peer?.stream) peer.stream.getTracks().forEach(t => t.stop());
             const { [id]: _, ...rest } = prev;
+            remotePeersRef.current = rest;
             return rest;
           });
         });
@@ -143,10 +151,14 @@ export default function VideoCall() {
             if (type === 'audio' && peer.stream) {
               peer.stream.getAudioTracks().forEach(t => (t.enabled = enabled));
             }
+            let updated = prev;
             if (type === 'video') {
-              return { ...prev, [from]: { ...peer, videoEnabled: enabled } };
+              updated = { ...prev, [from]: { ...peer, videoEnabled: enabled } };
+            } else {
+              updated = { ...prev };
             }
-            return { ...prev };
+            remotePeersRef.current = updated;
+            return updated;
           });
         });
       })
@@ -160,10 +172,10 @@ export default function VideoCall() {
       Object.values(peerConnections.current).forEach(pc => pc.close());
       peerConnections.current = {};
       localStream.current?.getTracks().forEach(track => track.stop());
-      Object.values(remotePeers).forEach(p => p.stream?.getTracks().forEach(t => t.stop()));
+      Object.values(remotePeersRef.current).forEach(p => p.stream?.getTracks().forEach(t => t.stop()));
       dispatch(leaveCall());
     };
-  }, [callId, createPeerConnection, dispatch, remotePeers]);
+  }, [callId, createPeerConnection, dispatch]);
 
   const toggleVideo = () => {
     const track = localStream.current?.getVideoTracks()[0];
@@ -187,7 +199,7 @@ export default function VideoCall() {
     Object.values(peerConnections.current).forEach(pc => pc.close());
     socketRef.current?.disconnect();
     localStream.current?.getTracks().forEach(track => track.stop());
-    Object.values(remotePeers).forEach(p => p.stream?.getTracks().forEach(t => t.stop()));
+    Object.values(remotePeersRef.current).forEach(p => p.stream?.getTracks().forEach(t => t.stop()));
     navigate('/');
   };
 
