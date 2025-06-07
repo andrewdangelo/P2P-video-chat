@@ -12,8 +12,11 @@ const callSlice = createSlice({
   initialState,
   reducers: {
     joinCall: (state, action) => {
-      state.displayName = action.payload.displayName;
-      state.callId = action.payload.callId;
+      const { callId, displayName, videoOn, audioOn } = action.payload;
+      state.callId = callId;
+      state.displayName = displayName;
+      state.videoOn = videoOn;
+      state.audioOn = audioOn;
     },
     leaveCall: (state) => {
       state.displayName = '';
