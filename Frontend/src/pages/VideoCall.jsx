@@ -12,116 +12,70 @@ export default function VideoCall() {
   const callId = useSelector(state => state.call.callId);
   const videoOn = useSelector(state => state.call.videoOn);
   const audioOn = useSelector(state => state.call.audioOn);
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
-  const peerConnection = useRef(null);
-  const socketRef = useRef(null);
-  const localStream = useRef(null);
-  const remoteStream = useRef(null);
-  const [status, setStatus] = useState('Initializing...');
-  const [remoteVideoEnabled, setRemoteVideoEnabled] = useState(true);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const currentPeerId = useRef(null);
+
+  const socketRef = useRef(null);
+  const localVideoRef = useRef(null);
+  const localStream = useRef(null);
+  const peerConnections = useRef({});
+  const [remotePeers, setRemotePeers] = useState({}); // { peerId: { stream, videoEnabled } }
+  const [status, setStatus] = useState('Initializing...');
 
   const restartIce = useCallback(() => {
-    const pc = peerConnection.current;
-    const to = currentPeerId.current;
-
-    if (!pc || !to) {
-      console.warn('[ICE] Cannot restart ICE — peer connection or peer ID missing');
-      return;
-    }
-
-    console.log('[ICE] Restarting ICE...');
-    pc.createOffer({ iceRestart: true })
-      .then(offer => pc.setLocalDescription(offer))
-      .then(() => {
-        console.log('[ICE] Sending ICE restart offer');
-        socketRef.current.emit('offer', {
-          offer: pc.localDescription,
-          to
-        });
-      })
-      .catch(err => {
-        console.error('[ICE] Failed to restart ICE:', err);
-      });
+    Object.entries(peerConnections.current).forEach(([id, pc]) => {
+      pc.createOffer({ iceRestart: true })
+        .then(offer => pc.setLocalDescription(offer))
+        .then(() => {
+          socketRef.current.emit('offer', { offer: pc.localDescription, to: id });
+        })
+        .catch(err => console.error('[ICE] Failed to restart ICE for', id, err));
+    });
   }, []);
 
-  const createPeerConnection = useCallback((otherUserId, isInitiator) => {
-    if (peerConnection.current) {
-      console.warn('[WebRTC] Peer connection already exists — skipping creation');
-      return;
-    }
+  const createPeerConnection = useCallback((peerId, isInitiator) => {
+    if (peerConnections.current[peerId]) return peerConnections.current[peerId];
 
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
 
-    peerConnection.current = pc;
+    peerConnections.current[peerId] = pc;
 
-    pc.onsignalingstatechange = () => {
-      console.log('[WebRTC] Signaling state changed:', pc.signalingState);
-    };
-
-    pc.onconnectionstatechange = () => {
-      console.log('[WebRTC] Connection state changed:', pc.connectionState);
-      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-        console.warn('[WebRTC] Disconnected or failed — attempting ICE restart');
-        restartIce();
-      }
-    };
-
-    localStream.current.getTracks().forEach(track => {
-      pc.addTrack(track, localStream.current);
-    });
-
-    pc.ontrack = e => {
-      console.log('[WebRTC] Received remote stream');
-      if (!remoteStream.current) {
-        remoteStream.current = new MediaStream();
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream.current;
-        }
-      }
-      e.streams[0].getTracks().forEach(track => {
-        remoteStream.current.addTrack(track);
-      });
-    };
+    localStream.current.getTracks().forEach(track => pc.addTrack(track, localStream.current));
 
     pc.onicecandidate = e => {
       if (e.candidate) {
-        console.log('[ICE] Sending ICE candidate');
-        socketRef.current.emit('ice-candidate', {
-          candidate: e.candidate,
-          to: otherUserId
-        });
+        socketRef.current.emit('ice-candidate', { candidate: e.candidate, to: peerId });
       }
+    };
+
+    pc.ontrack = e => {
+      setRemotePeers(prev => {
+        const existing = prev[peerId] || { stream: new MediaStream(), videoEnabled: true };
+        const stream = existing.stream;
+        e.streams[0].getTracks().forEach(track => stream.addTrack(track));
+        return { ...prev, [peerId]: { ...existing, stream } };
+      });
     };
 
     if (isInitiator) {
       pc.createOffer()
-        .then(offer => {
-          console.log('[WebRTC] Created offer');
-          return pc.setLocalDescription(offer);
-        })
+        .then(offer => pc.setLocalDescription(offer))
         .then(() => {
-          console.log('[WebRTC] Set local description (offer)');
-          socketRef.current.emit('offer', {
-            offer: pc.localDescription,
-            to: otherUserId
-          });
-        });
+          socketRef.current.emit('offer', { offer: pc.localDescription, to: peerId });
+        })
+        .catch(err => console.error('[WebRTC] Failed to create offer:', err));
     }
-  }, [restartIce]);
+
+    return pc;
+  }, []);
 
   useEffect(() => {
-    console.log('[VideoCall] Initializing...');
     socketRef.current = io(SOCKET_URL);
 
     socketRef.current.on('connect', () => {
-      console.log(`[Socket.IO] Connected as ${socketRef.current.id}`);
       setStatus('Connected to signaling server');
     });
 
@@ -131,70 +85,69 @@ export default function VideoCall() {
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
-        console.log('[Media] Local media stream acquired');
 
         socketRef.current.emit('join-room', { roomId: callId });
 
-        socketRef.current.on('other-user', (otherUserId) => {
-          console.log(`[Room] Found peer: ${otherUserId}`);
-          currentPeerId.current = otherUserId;
-          setStatus('Creating offer...');
-          createPeerConnection(otherUserId, true);
+        socketRef.current.on('room-full', () => {
+          setStatus('Room is full');
         });
 
-        socketRef.current.on('user-joined', (userId) => {
-          console.log(`[Room] User joined: ${userId}`);
-          currentPeerId.current = userId;
-          setStatus('Waiting for offer...');
-          createPeerConnection(userId, false);
+        socketRef.current.on('all-users', (users) => {
+          users.forEach(id => createPeerConnection(id, true));
+        });
+
+        socketRef.current.on('user-joined', (id) => {
+          createPeerConnection(id, false);
+        });
+
+        socketRef.current.on('user-left', (id) => {
+          const pc = peerConnections.current[id];
+          if (pc) {
+            pc.close();
+            delete peerConnections.current[id];
+          }
+          setRemotePeers(prev => {
+            const peer = prev[id];
+            if (peer?.stream) peer.stream.getTracks().forEach(t => t.stop());
+            const { [id]: _, ...rest } = prev;
+            return rest;
+          });
         });
 
         socketRef.current.on('offer', async ({ offer, from }) => {
-          const pc = peerConnection.current;
-          console.log('[WebRTC] Received offer from', from);
-          if (pc.signalingState !== 'stable') {
-            console.warn('[WebRTC] Offer ignored: signaling state is not stable');
-            return;
-          }
-
-          try {
-            await pc.setRemoteDescription(new RTCSessionDescription(offer));
-            console.log('[WebRTC] Set remote description (offer)');
-            if (pc.signalingState !== 'have-remote-offer') return;
-
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            console.log('[WebRTC] Set local description (answer)');
-            socketRef.current.emit('answer', { answer, to: from });
-          } catch (err) {
-            console.error('[WebRTC] Failed during offer-answer flow:', err);
-          }
+          const pc = peerConnections.current[from] || createPeerConnection(from, false);
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socketRef.current.emit('answer', { answer: pc.localDescription, to: from });
         });
 
-        socketRef.current.on('answer', async ({ answer }) => {
-          const pc = peerConnection.current;
-          if (!pc || pc.signalingState !== 'have-local-offer') return;
-          try {
+        socketRef.current.on('answer', async ({ answer, from }) => {
+          const pc = peerConnections.current[from];
+          if (pc) {
             await pc.setRemoteDescription(new RTCSessionDescription(answer));
-            console.log('[WebRTC] Set remote description (answer)');
-          } catch (err) {
-            console.error('[WebRTC] Failed to set remote answer:', err);
           }
         });
 
-        socketRef.current.on('ice-candidate', ({ candidate }) => {
-          console.log('[ICE] Received ICE candidate');
-          peerConnection.current?.addIceCandidate(new RTCIceCandidate(candidate));
+        socketRef.current.on('ice-candidate', ({ candidate, from }) => {
+          const pc = peerConnections.current[from];
+          if (pc) {
+            pc.addIceCandidate(new RTCIceCandidate(candidate));
+          }
         });
 
-        socketRef.current.on('media-toggle', ({ type, enabled }) => {
-          console.log(`[MEDIA] Peer toggled ${type}: ${enabled ? 'on' : 'off'}`);
-          if (type === 'video') {
-            setRemoteVideoEnabled(enabled);
-          } else if (type === 'audio' && remoteStream.current) {
-            const track = remoteStream.current.getAudioTracks()[0];
-            if (track) track.enabled = enabled;
-          }
+        socketRef.current.on('media-toggle', ({ from, type, enabled }) => {
+          setRemotePeers(prev => {
+            const peer = prev[from];
+            if (!peer) return prev;
+            if (type === 'audio' && peer.stream) {
+              peer.stream.getAudioTracks().forEach(t => (t.enabled = enabled));
+            }
+            if (type === 'video') {
+              return { ...prev, [from]: { ...peer, videoEnabled: enabled } };
+            }
+            return { ...prev };
+          });
         });
       })
       .catch(err => {
@@ -203,62 +156,38 @@ export default function VideoCall() {
       });
 
     return () => {
-      console.log('[Cleanup] Disconnecting...');
       if (socketRef.current) socketRef.current.disconnect();
+      Object.values(peerConnections.current).forEach(pc => pc.close());
+      peerConnections.current = {};
       localStream.current?.getTracks().forEach(track => track.stop());
-      remoteStream.current?.getTracks().forEach(track => track.stop());
-      peerConnection.current?.close();
-
-      peerConnection.current = null;
-      localStream.current = null;
-      remoteStream.current = null;
-      socketRef.current = null;
-
+      Object.values(remotePeers).forEach(p => p.stream?.getTracks().forEach(t => t.stop()));
       dispatch(leaveCall());
-      console.log('[Cleanup] Resources released');
     };
-  }, [callId, dispatch, createPeerConnection]);
+  }, [callId, createPeerConnection, dispatch, remotePeers]);
 
   const toggleVideo = () => {
-    const videoTrack = localStream.current?.getVideoTracks()[0];
-    if (videoTrack) {
-      videoTrack.enabled = !videoTrack.enabled;
-      dispatch(setVideoEnabled(videoTrack.enabled));
-      console.log(`[Media] Camera ${videoTrack.enabled ? 'enabled' : 'disabled'}`);
-      socketRef.current.emit('media-toggle', {
-        type: 'video',
-        enabled: videoTrack.enabled,
-        to: currentPeerId.current
-      });
+    const track = localStream.current?.getVideoTracks()[0];
+    if (track) {
+      track.enabled = !track.enabled;
+      dispatch(setVideoEnabled(track.enabled));
+      socketRef.current.emit('media-toggle', { type: 'video', enabled: track.enabled });
     }
   };
 
   const toggleAudio = () => {
-    const audioTrack = localStream.current?.getAudioTracks()[0];
-    if (audioTrack) {
-      audioTrack.enabled = !audioTrack.enabled;
-      dispatch(setAudioEnabled(audioTrack.enabled));
-      console.log(`[Media] Mic ${audioTrack.enabled ? 'enabled' : 'disabled'}`);
-      socketRef.current.emit('media-toggle', {
-        type: 'audio',
-        enabled: audioTrack.enabled,
-        to: currentPeerId.current
-      });
+    const track = localStream.current?.getAudioTracks()[0];
+    if (track) {
+      track.enabled = !track.enabled;
+      dispatch(setAudioEnabled(track.enabled));
+      socketRef.current.emit('media-toggle', { type: 'audio', enabled: track.enabled });
     }
   };
 
   const handleLeaveCall = () => {
-    console.log('[Call] Leaving call');
-    peerConnection.current?.close();
+    Object.values(peerConnections.current).forEach(pc => pc.close());
     socketRef.current?.disconnect();
-
     localStream.current?.getTracks().forEach(track => track.stop());
-    remoteStream.current?.getTracks().forEach(track => track.stop());
-
-    peerConnection.current = null;
-    remoteStream.current = null;
-    localStream.current = null;
-
+    Object.values(remotePeers).forEach(p => p.stream?.getTracks().forEach(t => t.stop()));
     navigate('/');
   };
 
@@ -275,9 +204,7 @@ export default function VideoCall() {
           {status}
         </Typography>
         <Stack direction="row" spacing={2} justifyContent="center" mt={2}>
-          <Button variant="outlined" onClick={restartIce}>
-            Restart ICE
-          </Button>
+          <Button variant="outlined" onClick={restartIce}>Restart ICE</Button>
           <Button variant={videoOn ? 'contained' : 'outlined'} onClick={toggleVideo}>
             {videoOn ? 'Turn Off Camera' : 'Turn On Camera'}
           </Button>
@@ -299,13 +226,24 @@ export default function VideoCall() {
           width="300"
           style={{ borderRadius: 8, background: '#000' }}
         />
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          width="300"
-          style={{ borderRadius: 8, background: '#000', display: remoteVideoEnabled ? 'block' : 'none' }}
-        />
+        {Object.entries(remotePeers).map(([id, peer]) => (
+          <video
+            key={id}
+            ref={el => {
+              if (el && peer.stream && el.srcObject !== peer.stream) {
+                el.srcObject = peer.stream;
+              }
+            }}
+            autoPlay
+            playsInline
+            width="300"
+            style={{
+              borderRadius: 8,
+              background: '#000',
+              display: peer.videoEnabled ? 'block' : 'none'
+            }}
+          />
+        ))}
       </Box>
     </Container>
   );

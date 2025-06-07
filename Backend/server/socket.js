@@ -3,20 +3,22 @@ function registerSocketHandlers(io, socket) {
 
   // When a client joins a room
   socket.on('join-room', ({ roomId }) => {
+    const room = io.sockets.adapter.rooms.get(roomId);
+    const numClients = room ? room.size : 0;
+
+    if (numClients >= 4) {
+      console.log(`[ROOM] Room ${roomId} full, rejecting ${socket.id}`);
+      socket.emit('room-full');
+      return;
+    }
+
     socket.join(roomId);
+    socket.roomId = roomId;
     console.log(`[ROOM] ${socket.id} joined room: ${roomId}`);
 
-    const room = io.sockets.adapter.rooms.get(roomId);
-    if (room) {
-      const otherUserId = Array.from(room).find(id => id !== socket.id);
-      if (otherUserId) {
-        console.log(`[ROOM] Found other user (${otherUserId}) in room ${roomId}`);
-        socket.emit('other-user', otherUserId);
-        socket.to(otherUserId).emit('user-joined', socket.id);
-      } else {
-        console.log(`[ROOM] ${socket.id} is the first user in room ${roomId}`);
-      }
-    }
+    const otherUsers = room ? Array.from(room) : [];
+    socket.emit('all-users', otherUsers);
+    socket.to(roomId).emit('user-joined', socket.id);
   });
 
   // WebRTC signaling
@@ -36,9 +38,11 @@ function registerSocketHandlers(io, socket) {
   });
 
   // Media toggle: notify peers of cam/mic state
-  socket.on('media-toggle', ({ type, enabled, to }) => {
-    console.log(`[MEDIA] ${socket.id} toggled ${type}: ${enabled ? 'on' : 'off'}, forwarding to ${to}`);
-    socket.to(to).emit('media-toggle', {
+  socket.on('media-toggle', ({ type, enabled }) => {
+    const roomId = socket.roomId;
+    if (!roomId) return;
+    console.log(`[MEDIA] ${socket.id} toggled ${type}: ${enabled ? 'on' : 'off'}`);
+    socket.to(roomId).emit('media-toggle', {
       from: socket.id,
       type,
       enabled
@@ -47,6 +51,10 @@ function registerSocketHandlers(io, socket) {
 
   // Disconnect
   socket.on('disconnect', () => {
+    const roomId = socket.roomId;
+    if (roomId) {
+      socket.to(roomId).emit('user-left', socket.id);
+    }
     console.log(`[-] Socket disconnected: ${socket.id}`);
   });
 }
