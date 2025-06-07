@@ -129,6 +129,13 @@ export default function VideoCall() {
   );
 
   useEffect(() => {
+<<<<<<< HEAD
+=======
+
+    if (!callId) return;
+
+    console.log('[VideoCall] Initializing...');
+>>>>>>> 882c564705eacefda6208939e6779c1d75da65e4
     socketRef.current = io(SOCKET_URL);
 
     socketRef.current.on("connect", () => {
@@ -214,10 +221,23 @@ export default function VideoCall() {
 
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
+<<<<<<< HEAD
       Object.keys(peerConnections.current).forEach((id) => removePeer(id));
       peerConnections.current = {};
       localStream.current?.getTracks().forEach((track) => track.stop());
       dispatch(leaveCall());
+=======
+      localStream.current?.getTracks().forEach(track => track.stop());
+      remoteStream.current?.getTracks().forEach(track => track.stop());
+      peerConnection.current?.close();
+
+      peerConnection.current = null;
+      localStream.current = null;
+      remoteStream.current = null;
+      socketRef.current = null;
+
+      console.log('[Cleanup] Resources released');
+>>>>>>> 882c564705eacefda6208939e6779c1d75da65e4
     };
   }, [callId, createPeerConnection, dispatch, removePeer]);
 
@@ -245,12 +265,48 @@ export default function VideoCall() {
     }
   };
 
+<<<<<<< HEAD
   const handleLeaveCall = () => {
     Object.keys(peerConnections.current).forEach((id) => removePeer(id));
     socketRef.current?.disconnect();
     localStream.current?.getTracks().forEach((track) => track.stop());
     navigate("/");
   };
+=======
+    const handleLeaveCall = () => {
+    console.log('[Call] Leaving call');
+
+    // Stop media tracks if present
+    if (localStream.current) {
+        localStream.current.getTracks().forEach(track => {
+        console.log(`[Media] Stopping local ${track.kind} track`);
+        track.stop();
+        });
+    }
+
+    if (remoteStream.current) {
+        remoteStream.current.getTracks().forEach(track => {
+        console.log(`[Media] Stopping remote ${track.kind} track`);
+        track.stop();
+        });
+    }
+
+    // Close peer connection and socket
+    peerConnection.current?.close();
+    socketRef.current?.disconnect();
+
+    // Clear refs
+    peerConnection.current = null;
+    localStream.current = null;
+    remoteStream.current = null;
+    socketRef.current = null;
+
+    dispatch(leaveCall());
+
+    navigate('/');
+    };
+
+>>>>>>> 882c564705eacefda6208939e6779c1d75da65e4
 
   return (
     <Container maxWidth="lg">

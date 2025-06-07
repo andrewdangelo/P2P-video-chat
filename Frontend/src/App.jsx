@@ -9,7 +9,9 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/lobby" element={<Lobby />} />
+      <Route path="/lobby/:callId" element={<Lobby />} />
       <Route path="/call/:callId" element={<VideoCall />} />
     </Routes>
+
   );
 }

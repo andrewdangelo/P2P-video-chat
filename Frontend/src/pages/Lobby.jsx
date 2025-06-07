@@ -9,20 +9,26 @@ import {
   Switch,
   Stack,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { joinCall, leaveCall } from '../features/call/callSlice';
 
 export default function Lobby() {
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
-  const [name, setName] = useState('');
-  const [videoOn, setVideoOn] = useState(true);
-  const [audioOn, setAudioOn] = useState(true);
+  const [localName, setLocalName] = useState('');
+  const [localVideoOn, setLocalVideoOn] = useState(true);
+  const [localAudioOn, setLocalAudioOn] = useState(true);
+
+  const { callId: routeCallId } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
+  const { displayName, callId: reduxCallId } = useSelector((state) => state.call);
+
+  const resolvedCallId = reduxCallId || routeCallId || uuidv4();
 
   useEffect(() => {
     let mediaStream;
@@ -42,19 +48,18 @@ export default function Lobby() {
 
     return () => {
       if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream.getTracks().forEach((track) => track.stop());
         console.log('[Lobby] Stopped local media tracks on unmount');
       }
-      dispatch(leaveCall());
+      // dispatch(leaveCall());
     };
   }, [dispatch]);
-
 
   const handleToggleVideo = () => {
     const videoTrack = stream?.getVideoTracks()[0];
     if (videoTrack) {
       videoTrack.enabled = !videoTrack.enabled;
-      setVideoOn(videoTrack.enabled);
+      setLocalVideoOn(videoTrack.enabled);
     }
   };
 
@@ -62,22 +67,24 @@ export default function Lobby() {
     const audioTrack = stream?.getAudioTracks()[0];
     if (audioTrack) {
       audioTrack.enabled = !audioTrack.enabled;
-      setAudioOn(audioTrack.enabled);
+      setLocalAudioOn(audioTrack.enabled);
     }
   };
 
   const handleStartCall = () => {
-    if (!name.trim()) return;
-    const roomId = uuidv4();
+    const nameToUse = displayName || localName;
+    if (!nameToUse.trim()) return;
 
-    dispatch(joinCall({
-      callId: roomId,
-      displayName: name,
-      videoOn,
-      audioOn
-    }));
+    dispatch(
+      joinCall({
+        callId: resolvedCallId,
+        displayName: nameToUse,
+        videoOn: localVideoOn,
+        audioOn: localAudioOn,
+      })
+    );
 
-    navigate(`/call/${roomId}`);
+    navigate(`/call/${resolvedCallId}`);
   };
 
   return (
@@ -103,18 +110,18 @@ export default function Lobby() {
         <TextField
           fullWidth
           label="Your Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={displayName || localName}
+          onChange={(e) => setLocalName(e.target.value)}
           margin="normal"
         />
 
         <Stack direction="row" spacing={2} justifyContent="center" sx={{ my: 2 }}>
           <FormControlLabel
-            control={<Switch checked={videoOn} onChange={handleToggleVideo} />}
+            control={<Switch checked={localVideoOn} onChange={handleToggleVideo} />}
             label="Camera"
           />
           <FormControlLabel
-            control={<Switch checked={audioOn} onChange={handleToggleAudio} />}
+            control={<Switch checked={localAudioOn} onChange={handleToggleAudio} />}
             label="Microphone"
           />
         </Stack>
@@ -125,7 +132,7 @@ export default function Lobby() {
           color="primary"
           size="large"
           onClick={handleStartCall}
-          disabled={!name.trim()}
+          disabled={!displayName.trim() && !localName.trim()}
         >
           Start Call
         </Button>
