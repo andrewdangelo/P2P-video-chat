@@ -25,7 +25,7 @@ export default function VideoCall() {
   const localStream = useRef(null);
   const peerConnections = useRef({});
   const remotePeersRef = useRef({});
-  const [remotePeers, setRemotePeers] = useState({}); // { peerId: { stream, videoEnabled } }
+  const [remotePeers, setRemotePeers] = useState({});
   const [status, setStatus] = useState("Initializing...");
 
   const removePeer = useCallback((id) => {
@@ -60,7 +60,7 @@ export default function VideoCall() {
           });
         })
         .catch((err) =>
-          console.error("[ICE] Failed to restart ICE for", id, err),
+          console.error("[ICE] Failed to restart ICE for", id, err)
         );
     });
   }, []);
@@ -119,23 +119,18 @@ export default function VideoCall() {
             });
           })
           .catch((err) =>
-            console.error("[WebRTC] Failed to create offer:", err),
+            console.error("[WebRTC] Failed to create offer:", err)
           );
       }
 
       return pc;
     },
-    [removePeer],
+    [removePeer]
   );
 
   useEffect(() => {
-
-    console.log('[VideoCall] Initializing...');
+    console.log("[VideoCall] Initializing...");
     socketRef.current = io(SOCKET_URL);
-
-    socketRef.current.on("connect", () => {
-      setStatus("Connected to signaling server");
-    });
 
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -145,14 +140,29 @@ export default function VideoCall() {
           localVideoRef.current.srcObject = stream;
         }
 
-        socketRef.current.emit("join-room", { roomId: callId });
+        socketRef.current.emit("join-room", { roomId: callId }, ({ success }) => {
+          if (success) {
+            const stream = localStream.current;
+            socketRef.current.emit("media-toggle", {
+              type: "video",
+              enabled: stream.getVideoTracks()[0]?.enabled ?? true,
+            });
+            socketRef.current.emit("media-toggle", {
+              type: "audio",
+              enabled: stream.getAudioTracks()[0]?.enabled ?? true,
+            });
+          }
+        });
 
         socketRef.current.on("room-full", () => {
           setStatus("Room is full");
         });
 
         socketRef.current.on("all-users", (users) => {
-          users.forEach((id) => createPeerConnection(id, true));
+          const selfId = socketRef.current.id;
+          users
+            .filter((id) => id !== selfId)
+            .forEach((id) => createPeerConnection(id, true));
         });
 
         socketRef.current.on("user-joined", (id) => {
@@ -193,17 +203,19 @@ export default function VideoCall() {
           setRemotePeers((prev) => {
             const peer = prev[from];
             if (!peer) return prev;
+
             if (type === "audio" && peer.stream) {
-              peer.stream
-                .getAudioTracks()
-                .forEach((t) => (t.enabled = enabled));
+              peer.stream.getAudioTracks().forEach((t) => (t.enabled = enabled));
             }
+
             let updated = prev;
             if (type === "video") {
-              updated = { ...prev, [from]: { ...peer, videoEnabled: enabled } };
-            } else {
-              updated = { ...prev };
+              updated = {
+                ...prev,
+                [from]: { ...peer, videoEnabled: enabled },
+              };
             }
+
             remotePeersRef.current = updated;
             return updated;
           });
@@ -228,10 +240,8 @@ export default function VideoCall() {
     if (track) {
       track.enabled = !track.enabled;
       dispatch(setVideoEnabled(track.enabled));
-      socketRef.current.emit("media-toggle", {
-        type: "video",
-        enabled: track.enabled,
-      });
+
+      console.log("[VideoCall] Toggling video:", track.enabled);
     }
   };
 
@@ -240,10 +250,8 @@ export default function VideoCall() {
     if (track) {
       track.enabled = !track.enabled;
       dispatch(setAudioEnabled(track.enabled));
-      socketRef.current.emit("media-toggle", {
-        type: "audio",
-        enabled: track.enabled,
-      });
+
+      console.log("[VideoCall] Toggling audio:", track.enabled);
     }
   };
 
