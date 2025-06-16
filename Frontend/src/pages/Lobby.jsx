@@ -30,6 +30,8 @@ export default function Lobby() {
 
   const resolvedCallId = reduxCallId || routeCallId || uuidv4();
 
+  // {Todo:} Redux is not properly handling state updates for call start.
+
   useEffect(() => {
     let mediaStream;
 

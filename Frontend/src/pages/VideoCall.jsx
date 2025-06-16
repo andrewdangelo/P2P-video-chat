@@ -12,6 +12,9 @@ import { io } from "socket.io-client";
 const SOCKET_URL = import.meta.env.VITE_SIGNALING_SERVER_URL;
 
 export default function VideoCall() {
+
+  // {TODO: Problem with the useSelector hook, it is not working as expected}
+  // Ensure that the Redux store is properly configured and the call state is available
   const displayName = useSelector((state) => state.call.displayName);
   const callId = useSelector((state) => state.call.callId);
   const videoOn = useSelector((state) => state.call.videoOn);
