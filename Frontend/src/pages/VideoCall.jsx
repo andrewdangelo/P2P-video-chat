@@ -31,6 +31,10 @@ export default function VideoCall() {
   const [remotePeers, setRemotePeers] = useState({});
   const [status, setStatus] = useState("Initializing...");
 
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const screenTrackRef = useRef(null);
+
+
   const removePeer = useCallback((id) => {
     const pc = peerConnections.current[id];
     if (pc) {
@@ -244,6 +248,11 @@ export default function VideoCall() {
       dispatch(setVideoEnabled(track.enabled));
 
       console.log("[VideoCall] Toggling video:", track.enabled);
+
+      socketRef.current?.emit("media-toggle", {
+        type: "video",
+        enabled: track.enabled,
+      });
     }
   };
 
@@ -254,8 +263,72 @@ export default function VideoCall() {
       dispatch(setAudioEnabled(track.enabled));
 
       console.log("[VideoCall] Toggling audio:", track.enabled);
+
+      socketRef.current?.emit("media-toggle", {
+        type: "audio",
+        enabled: track.enabled,
+      });
     }
   };
+
+
+  const toggleScreenShare = async () => {
+      if (!isScreenSharing) {
+        try {
+          const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          const screenTrack = screenStream.getVideoTracks()[0];
+
+          screenTrackRef.current = screenTrack;
+
+          // Replace track in localStream
+          const senderList = [];
+          Object.values(peerConnections.current).forEach((pc) => {
+            const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+            if (sender) {
+              sender.replaceTrack(screenTrack);
+              senderList.push(sender);
+            }
+          });
+
+          // Replace track in local preview
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = new MediaStream([screenTrack]);
+          }
+
+          screenTrack.onended = () => {
+            stopScreenShare();
+          };
+
+          setIsScreenSharing(true);
+        } catch (err) {
+          console.error("Error sharing screen:", err);
+        }
+      } else {
+        stopScreenShare();
+      }
+    };
+
+    const stopScreenShare = () => {
+      const videoTrack = localStream.current?.getVideoTracks()[0];
+
+      if (videoTrack) {
+        Object.values(peerConnections.current).forEach((pc) => {
+          const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+          if (sender) {
+            sender.replaceTrack(videoTrack);
+          }
+        });
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = new MediaStream([videoTrack]);
+        }
+
+        screenTrackRef.current?.stop();
+        screenTrackRef.current = null;
+        setIsScreenSharing(false);
+      }
+    };
+
 
   const handleLeaveCall = () => {
     Object.keys(peerConnections.current).forEach((id) => removePeer(id));
@@ -294,6 +367,12 @@ export default function VideoCall() {
             onClick={toggleAudio}
           >
             {audioOn ? "Mute Mic" : "Unmute Mic"}
+          </Button>
+          <Button
+            variant={isScreenSharing ? "contained" : "outlined"}
+            onClick={toggleScreenShare}
+          >
+            {isScreenSharing ? "Stop Sharing" : "Share Screen"}
           </Button>
           <Button variant="contained" color="error" onClick={handleLeaveCall}>
             Leave Call
