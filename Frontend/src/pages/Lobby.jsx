@@ -13,14 +13,15 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 
 import { useDispatch, useSelector } from 'react-redux';
-import { joinCall, leaveCall } from '../features/call/callSlice';
+import { joinCall, setAudioEnabled, setVideoEnabled } from '../features/call/callSlice';
 
 export default function Lobby() {
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [localName, setLocalName] = useState('');
-  const [localVideoOn, setLocalVideoOn] = useState(true);
-  const [localAudioOn, setLocalAudioOn] = useState(true);
+  const videoOn = useSelector((state) => state.call.videoOn);
+  const audioOn = useSelector((state) => state.call.audioOn);
+
 
   const { callId: routeCallId } = useParams();
   const navigate = useNavigate();
@@ -60,18 +61,21 @@ export default function Lobby() {
   const handleToggleVideo = () => {
     const videoTrack = stream?.getVideoTracks()[0];
     if (videoTrack) {
-      videoTrack.enabled = !videoTrack.enabled;
-      setLocalVideoOn(videoTrack.enabled);
+      const newState = !videoTrack.enabled;
+      videoTrack.enabled = newState;
+      dispatch(setVideoEnabled(newState));
     }
   };
 
   const handleToggleAudio = () => {
     const audioTrack = stream?.getAudioTracks()[0];
     if (audioTrack) {
-      audioTrack.enabled = !audioTrack.enabled;
-      setLocalAudioOn(audioTrack.enabled);
+      const newState = !audioTrack.enabled;
+      audioTrack.enabled = newState;
+      dispatch(setAudioEnabled(newState));
     }
   };
+
 
   const handleStartCall = () => {
     const nameToUse = displayName || localName;
@@ -81,10 +85,11 @@ export default function Lobby() {
       joinCall({
         callId: resolvedCallId,
         displayName: nameToUse,
-        videoOn: localVideoOn,
-        audioOn: localAudioOn,
+        videoOn,
+        audioOn,
       })
     );
+
 
     navigate(`/call/${resolvedCallId}`);
   };
@@ -119,11 +124,11 @@ export default function Lobby() {
 
         <Stack direction="row" spacing={2} justifyContent="center" sx={{ my: 2 }}>
           <FormControlLabel
-            control={<Switch checked={localVideoOn} onChange={handleToggleVideo} />}
+            control={<Switch checked={videoOn} onChange={handleToggleVideo} />}
             label="Camera"
           />
           <FormControlLabel
-            control={<Switch checked={localAudioOn} onChange={handleToggleAudio} />}
+            control={<Switch checked={audioOn} onChange={handleToggleAudio} />}
             label="Microphone"
           />
         </Stack>

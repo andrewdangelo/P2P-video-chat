@@ -230,12 +230,11 @@ export default function VideoCall() {
       });
 
     return () => {
-      if (socketRef.current) socketRef.current.disconnect();
-      Object.keys(peerConnections.current).forEach((id) => removePeer(id));
-      peerConnections.current = {};
-      localStream.current?.getTracks().forEach((track) => track.stop());
-      dispatch(leaveCall());
-    };
+       if (socketRef.current) socketRef.current.disconnect();
+        Object.keys(peerConnections.current).forEach((id) => removePeer(id));
+        peerConnections.current = {};
+        localStream.current?.getTracks().forEach((track) => track.stop());
+      };
   }, [callId, createPeerConnection, dispatch, removePeer]);
 
   const toggleVideo = () => {
@@ -262,7 +261,10 @@ export default function VideoCall() {
     Object.keys(peerConnections.current).forEach((id) => removePeer(id));
     socketRef.current?.disconnect();
     localStream.current?.getTracks().forEach((track) => track.stop());
-    navigate("/");
+    dispatch(leaveCall());
+
+    //force reload to reset the app state
+    window.location.href = "/";
   };
 
   return (

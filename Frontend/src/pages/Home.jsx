@@ -16,6 +16,8 @@ import { joinCall } from '../features/call/callSlice';
 import { v4 as uuidv4 } from 'uuid';
 
 import JoinModal from '../components/Modals/JoinModal';
+import Navbar from '../components/Navbar';
+
 
 export default function Home() {
   const [joinOpen, setJoinOpen] = useState(false);
@@ -31,13 +33,7 @@ export default function Home() {
 
   return (
     <>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="div">
-            My WebRTC App
-          </Typography>
-        </Toolbar>
-      </AppBar>
+      <Navbar />
 
       <Container maxWidth="md" sx={{ mt: 8, textAlign: 'center' }}>
         <Typography variant="h4" gutterBottom>
