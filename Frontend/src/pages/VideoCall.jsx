@@ -12,9 +12,6 @@ import { io } from "socket.io-client";
 const SOCKET_URL = import.meta.env.VITE_SIGNALING_SERVER_URL;
 
 export default function VideoCall() {
-
-  // {TODO: Problem with the useSelector hook, it is not working as expected}
-  // Ensure that the Redux store is properly configured and the call state is available
   const displayName = useSelector((state) => state.call.displayName);
   const callId = useSelector((state) => state.call.callId);
   const videoOn = useSelector((state) => state.call.videoOn);
@@ -396,23 +393,41 @@ export default function VideoCall() {
           style={{ borderRadius: 8, background: "#000" }}
         />
         {Object.entries(remotePeers).map(([id, peer]) => (
-          <video
-            key={id}
-            ref={(el) => {
-              if (el && peer.stream && el.srcObject !== peer.stream) {
-                el.srcObject = peer.stream;
-              }
-            }}
-            autoPlay
-            playsInline
-            width="300"
-            style={{
-              borderRadius: 8,
-              background: "#000",
-              display: peer.videoEnabled ? "block" : "none",
-            }}
-          />
+          peer.videoEnabled ? (
+            <video
+              key={id}
+              ref={(el) => {
+                if (el && peer.stream && el.srcObject !== peer.stream) {
+                  el.srcObject = peer.stream;
+                }
+              }}
+              autoPlay
+              playsInline
+              width="300"
+              style={{
+                borderRadius: 8,
+                background: "#000",
+              }}
+            />
+          ) : (
+            <Box
+              key={id}
+              width={300}
+              height={225}
+              borderRadius={2}
+              bgcolor="#222"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              color="white"
+              fontSize={16}
+              fontWeight={500}
+            >
+              Camera Off
+            </Box>
+          )
         ))}
+
       </Box>
     </Container>
   );
