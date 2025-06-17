@@ -28,6 +28,7 @@ import JoinModal from '../components/Modals/JoinModal';
 import Navbar from '../components/Navbar';
 
 import Logo from "../assets/icons/main_icon.svg";
+import { generateShortRoomId } from '../utils/generateRandomId';
 
 export default function Home() {
   const [joinOpen, setJoinOpen] = useState(false);
@@ -35,7 +36,12 @@ export default function Home() {
   const navigate = useNavigate();
 
   const handleStartCall = () => {
-    const roomId = uuidv4();
+    const roomId = generateShortRoomId();
+    // Ensure roomId is unique and valid
+    if (!roomId) {
+      console.error('Failed to generate a valid room ID');
+      return;
+    }
     dispatch(joinCall({ callId: roomId, displayName: '', videoOn: true, audioOn: true }));
     navigate(`/lobby/${roomId}`);
   };

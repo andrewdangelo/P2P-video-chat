@@ -9,6 +9,7 @@ import { useSelector } from 'react-redux';
 
 
 import mainIcon from '../assets/icons/main_icon.svg';
+import { generateShortRoomId } from '../utils/generateRandomId';
 
 export default function Navbar() {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -29,7 +30,12 @@ export default function Navbar() {
   };
 
   const handleStartCall = () => {
-    const roomId = uuidv4();
+    const roomId = generateShortRoomId();
+    // Ensure roomId is unique and valid
+    if (!roomId) {
+      console.error('Failed to generate a valid room ID');
+      return;
+    }
     dispatch(joinCall({ callId: roomId, displayName: '', videoOn: true, audioOn: true }));
     navigate(`/lobby/${roomId}`);
   };

@@ -9,6 +9,8 @@ import {
 } from "../features/call/callSlice";
 import { io } from "socket.io-client";
 
+import ControlBar from "../components/ControlBar";
+
 const SOCKET_URL = import.meta.env.VITE_SIGNALING_SERVER_URL;
 
 export default function VideoCall() {
@@ -338,7 +340,7 @@ export default function VideoCall() {
   };
 
   return (
-    <Container maxWidth="lg">
+  <Container maxWidth="lg" sx={{ position: "relative", minHeight: "100vh" }}>
       <Box textAlign="center" mt={4}>
         <Typography variant="h5" gutterBottom>
           Room: {callId}
@@ -349,41 +351,9 @@ export default function VideoCall() {
         <Typography sx={{ mt: 1 }} color="text.secondary">
           {status}
         </Typography>
-        <Stack direction="row" spacing={2} justifyContent="center" mt={2}>
-          <Button variant="outlined" onClick={restartIce}>
-            Restart ICE
-          </Button>
-          <Button
-            variant={videoOn ? "contained" : "outlined"}
-            onClick={toggleVideo}
-          >
-            {videoOn ? "Turn Off Camera" : "Turn On Camera"}
-          </Button>
-          <Button
-            variant={audioOn ? "contained" : "outlined"}
-            onClick={toggleAudio}
-          >
-            {audioOn ? "Mute Mic" : "Unmute Mic"}
-          </Button>
-          <Button
-            variant={isScreenSharing ? "contained" : "outlined"}
-            onClick={toggleScreenShare}
-          >
-            {isScreenSharing ? "Stop Sharing" : "Share Screen"}
-          </Button>
-          <Button variant="contained" color="error" onClick={handleLeaveCall}>
-            Leave Call
-          </Button>
-        </Stack>
       </Box>
 
-      <Box
-        display="flex"
-        justifyContent="center"
-        mt={4}
-        gap={4}
-        flexWrap="wrap"
-      >
+      <Box display="flex" justifyContent="center" mt={4} gap={4} flexWrap="wrap">
         <video
           ref={localVideoRef}
           autoPlay
@@ -392,7 +362,7 @@ export default function VideoCall() {
           width="300"
           style={{ borderRadius: 8, background: "#000" }}
         />
-        {Object.entries(remotePeers).map(([id, peer]) => (
+        {Object.entries(remotePeers).map(([id, peer]) =>
           peer.videoEnabled ? (
             <video
               key={id}
@@ -404,10 +374,7 @@ export default function VideoCall() {
               autoPlay
               playsInline
               width="300"
-              style={{
-                borderRadius: 8,
-                background: "#000",
-              }}
+              style={{ borderRadius: 8, background: "#000" }}
             />
           ) : (
             <Box
@@ -426,9 +393,19 @@ export default function VideoCall() {
               Camera Off
             </Box>
           )
-        ))}
-
+        )}
       </Box>
+
+      <ControlBar
+        videoOn={videoOn}
+        audioOn={audioOn}
+        isScreenSharing={isScreenSharing}
+        onToggleVideo={toggleVideo}
+        onToggleAudio={toggleAudio}
+        onToggleScreenShare={toggleScreenShare}
+        onRestartIce={restartIce}
+        onLeaveCall={handleLeaveCall}
+      />
     </Container>
   );
 }
