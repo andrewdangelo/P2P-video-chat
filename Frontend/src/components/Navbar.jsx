@@ -1,13 +1,19 @@
-import { AppBar, Box, Toolbar, Typography, Button, IconButton, Menu, MenuItem } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
+import { AppBar, Box, Toolbar, Typography, Button, IconButton, Menu, MenuItem, Container, Stack } from '@mui/material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
+import { useDispatch } from 'react-redux';
+
+import { joinCall } from '../features/call/callSlice';
+import { useSelector } from 'react-redux';
+
 
 import mainIcon from '../assets/icons/main_icon.svg';
 
 export default function Navbar() {
   const [anchorEl, setAnchorEl] = useState(null);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -22,77 +28,46 @@ export default function Navbar() {
     handleMenuClose();
   };
 
+  const handleStartCall = () => {
+    const roomId = uuidv4();
+    dispatch(joinCall({ callId: roomId, displayName: '', videoOn: true, audioOn: true }));
+    navigate(`/lobby/${roomId}`);
+  };
+
   return (
     <AppBar
       position="sticky"
-      elevation={0}
       sx={{
-        backgroundColor: '#e4e4e4',
-        color: 'black',
-        boxShadow: '0 2px 2px rgba(0, 0, 0, 0.1)',
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-        padding: '0 8px',
+        backgroundColor: 'background.default',
+        py: 2,
+        boxShadow: (theme) => `0 6px 10px 0 ${theme.palette.background.default[200]}`,
       }}
     >
-      <Toolbar sx={{ justifyContent: 'space-between' }}>
-        {/* Logo and Title */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <img
-            src={mainIcon}
-            alt="Main Icon"
-            style={{ width: 36, height: 36 }}
-          />
-          <Typography
-            variant="h6"
-            sx={{ fontWeight: 500, cursor: 'pointer', textTransform: 'uppercase' }}
-            onClick={() => navigate('/')}
-          >
-            Cympl
-          </Typography>
-        </Box>
+      <Container maxWidth="lg" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <img src={mainIcon} alt="App Logo" style={{ height: 40 }} />
 
-        {/* Desktop Navigation */}
-        <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2, alignItems: 'center' }}>
-          <Button onClick={() => handleNavigate('/features')} color="inherit">Features</Button>
-          <Button onClick={() => handleNavigate('/about')} color="inherit">About</Button>
-          <Button onClick={() => handleNavigate('/contact')} color="inherit">Contact</Button>
+        <Stack direction="row" spacing={4} alignItems="center">
           <Button
             variant="contained"
-            onClick={() => handleNavigate('/lobby/test')}
-            sx={{ ml: 2 }}
+            sx={{
+              backgroundColor: 'primary.main',
+              color: '#fff',
+              borderBottom: '3px solid',
+              borderColor: 'secondary.main',
+              boxShadow: 'none',
+              '&:hover': {
+                backgroundColor: 'primary.dark',
+              },
+            }}
+            onClick={handleStartCall}
           >
-            Launch App
+            Create Room
           </Button>
-        </Box>
-
-        {/* Mobile Navigation */}
-        <Box sx={{ display: { xs: 'block', md: 'none' } }}>
-          <IconButton
-            edge="start"
-            color="inherit"
-            aria-label="menu"
-            aria-controls="mobile-menu"
-            aria-haspopup="true"
-            onClick={handleMenuOpen}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Menu
-            id="mobile-menu"
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-          >
-            <MenuItem onClick={() => { handleNavigate('/features'); handleMenuClose(); }}>Features</MenuItem>
-            <MenuItem onClick={() => { handleNavigate('/about'); handleMenuClose(); }}>About</MenuItem>
-            <MenuItem onClick={() => { handleNavigate('/contact'); handleMenuClose(); }}>Contact</MenuItem>
-            <MenuItem onClick={() => { handleNavigate('/lobby/test'); handleMenuClose(); }}>
-              Launch App
-            </MenuItem>
-          </Menu>
-        </Box>
-      </Toolbar>
+          {/* <Button variant="text" color="primary">
+            Contact Us
+          </Button> */}
+        </Stack>
+      </Container>
     </AppBar>
-
   );
 }
