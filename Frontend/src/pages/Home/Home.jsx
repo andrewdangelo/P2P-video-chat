@@ -21,14 +21,16 @@ import VideoChatIcon from '@mui/icons-material/VideoChat';
 
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { joinCall } from '../features/call/callSlice';
+import { joinCall } from '../../features/call/callSlice';
 import { v4 as uuidv4 } from 'uuid';
 
-import JoinModal from '../components/Modals/JoinModal';
-import Navbar from '../components/Navbar';
+import JoinModal from '../../components/Modals/JoinModal';
+import Navbar from '../../components/Navbar';
 
-import Logo from "../assets/icons/main_icon.svg";
-import { generateShortRoomId } from '../utils/generateRandomId';
+import Logo from "../../assets/icons/main_icon.svg";
+import { generateShortRoomId } from '../../utils/generateRandomId';
+import TopFeaturesSection from './Sections/FeatureSection';
+
 
 export default function Home() {
   const [joinOpen, setJoinOpen] = useState(false);
@@ -174,52 +176,7 @@ export default function Home() {
 
 
       {/* Features */}
-      <Container maxWidth="lg" sx={{ py: 10 }}>
-        <Typography variant="h4" textAlign="center" fontWeight={600} gutterBottom>
-          Features You'll Love
-        </Typography>
-        <Grid container spacing={4} justifyContent="center" sx={{ mt: 2 }}>
-          {[
-            {
-              title: 'End-to-End Privacy',
-              desc: 'Peer-to-peer WebRTC connections with no servers in the middle.',
-            },
-            {
-              title: 'No Signups Required',
-              desc: 'Instant access — start or join with just one click.',
-            },
-            {
-              title: 'Works on All Devices',
-              desc: 'Browser-based calling compatible with desktop and mobile.',
-            },
-            {
-              title: 'Screen Sharing',
-              desc: 'Share your entire screen or just a window during any call.',
-            },
-            {
-              title: 'Mute & Camera Toggle',
-              desc: 'You’re always in control of how you appear and sound.',
-            },
-            {
-              title: 'Ultra Low Latency',
-              desc: 'Built for speed with WebRTC’s real-time communication.',
-            },
-          ].map((feature, i) => (
-            <Grid item xs={12} sm={6} md={4} key={i}>
-              <Card elevation={2}>
-                <CardContent>
-                  <Typography variant="h6" fontWeight={600} gutterBottom>
-                    {feature.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {feature.desc}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
+      <TopFeaturesSection />
 
       <Divider variant="middle" sx={{ my: 8 }} />
 
