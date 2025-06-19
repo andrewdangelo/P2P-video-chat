@@ -9,13 +9,18 @@ const app = express();
 const server = http.createServer(app);
 
 // Allow cross-origin requests from frontend
-app.use(cors({ origin: CLIENT_ORIGIN }));
+app.use(cors({
+  origin: CLIENT_ORIGIN,
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 
 // Socket.IO with CORS config
 const io = new Server(server, {
   cors: {
     origin: CLIENT_ORIGIN,
-    methods: ['GET', 'POST']
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
