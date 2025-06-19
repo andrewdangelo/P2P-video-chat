@@ -158,22 +158,23 @@ function FeatureFlipCard({ feature }) {
 export default function TopFeaturesSection() {
   return (
     <Container sx={{ py: 10, backgroundColor: '#EAF7F1', minWidth: '100%' }}>
-      <Typography
-        variant="overline"
-        textAlign="center"
-        sx={{ color: '#6B9080', letterSpacing: 2 }}
-      >
-        FEATURES
-      </Typography>
-      <Typography
-        variant="h4"
-        textAlign="center"
-        fontWeight={700}
-        sx={{ color: '#2ACF85', mb: 6 }}
-      >
-        Our Features & Services.
-      </Typography>
-
+        <Grid container direction="column" justifyContent="center" sx={{ mb: 4 }}>
+            <Typography
+                variant="overline"
+                textAlign="center"
+                sx={{ color: '#6B9080', letterSpacing: 2 }}
+            >
+                FEATURES
+            </Typography>
+            <Typography
+                variant="h4"
+                textAlign="center"
+                fontWeight={700}
+                sx={{ color: '#2ACF85', mb: 6 }}
+            >
+                Our Features & Services.
+            </Typography>
+        </Grid>
        <Grid container spacing={4} justifyContent="center" alignItems="stretch">
         {features.map((feature, i) => (
             

@@ -30,6 +30,7 @@ import Navbar from '../../components/Navbar';
 import Logo from "../../assets/icons/main_icon.svg";
 import { generateShortRoomId } from '../../utils/generateRandomId';
 import TopFeaturesSection from './Sections/FeatureSection';
+import FAQ from './Sections/FAQ';
 
 
 export default function Home() {
@@ -81,18 +82,18 @@ export default function Home() {
           sx={{ fontWeight: 700, textTransform: 'uppercase' }}
           gutterBottom
         >
-          Seamless Video Calling
+          SideTalk
         </Typography>
 
         {/* Description */}
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Create or join a room and start chatting with privacy and simplicity.
+          Instant, secure, and private peer-to-peer video calls.
         </Typography>
 
         {/* Action Buttons */}
         <Stack direction="row" spacing={2} justifyContent="center">
           <Button variant="contained" size="large" onClick={handleStartCall}>
-            Start Call
+            Create Room
           </Button>
           <Button variant="outlined" size="large" onClick={() => setJoinOpen(true)}>
             Join Call
@@ -178,85 +179,11 @@ export default function Home() {
       {/* Features */}
       <TopFeaturesSection />
 
-      <Divider variant="middle" sx={{ my: 8 }} />
 
-      {/* Testimonials */}
-      <Container maxWidth="md" sx={{ textAlign: 'center' }}>
-        <Typography variant="h4" fontWeight={600} gutterBottom>
-          Trusted by Users Around the World
-        </Typography>
-        <Grid container spacing={4} sx={{ mt: 4 }} justifyContent="center">
-          {[
-            {
-              name: 'Alex R.',
-              text: 'I love how quick and simple it is to hop into a call. No logins, no hassle.',
-              avatar: '/avatars/alex.png',
-            },
-            {
-              name: 'Jenna M.',
-              text: 'Great for remote teams. The quality is top-notch and it just works.',
-              avatar: '/avatars/jenna.png',
-            },
-            {
-              name: 'Luis K.',
-              text: 'Privacy matters to me — and this app respects that completely.',
-              avatar: '/avatars/luis.png',
-            },
-          ].map((review, i) => (
-            <Grid item xs={12} sm={6} md={4} key={i}>
-              <Card elevation={3}>
-                <CardContent>
-                  <Avatar src={review.avatar} sx={{ width: 56, height: 56, mb: 1, mx: 'auto' }} />
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    {review.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    “{review.text}”
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
-
-      <Divider variant="middle" sx={{ my: 8 }} />
+      
 
       {/* FAQ */}
-      <Container maxWidth="md">
-        <Typography variant="h4" fontWeight={600} textAlign="center" gutterBottom>
-          Frequently Asked Questions
-        </Typography>
-        <Box mt={4}>
-          {[
-            {
-              q: 'Is this really private?',
-              a: 'Yes — calls are direct peer-to-peer using WebRTC, with no media passing through any server.',
-            },
-            {
-              q: 'Do I need to install anything?',
-              a: 'No installs required. It works entirely in modern browsers.',
-            },
-            {
-              q: 'How many people can join a call?',
-              a: 'Up to 4 users per call with full-mesh peer connections for performance.',
-            },
-            {
-              q: 'Is it free to use?',
-              a: 'Yes, this app is completely free with no ads or subscriptions.',
-            },
-          ].map((item, i) => (
-            <Accordion key={i}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography fontWeight={600}>{item.q}</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Typography color="text.secondary">{item.a}</Typography>
-              </AccordionDetails>
-            </Accordion>
-          ))}
-        </Box>
-      </Container>
+      <FAQ />
 
       {/* Final CTA */}
       <Box sx={{ backgroundColor: '#f5f5f5', py: 10, mt: 10 }}>
