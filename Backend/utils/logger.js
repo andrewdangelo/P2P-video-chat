@@ -1,4 +1,5 @@
 // utils/logger.js
+
 let log = {
   info: (...args) => console.log('[INFO]', ...args),
   success: (...args) => console.log('[SUCCESS]', ...args),
@@ -14,6 +15,7 @@ let log = {
   try {
     const chalk = (await import('chalk')).default;
 
+    // Overwrite with color-enhanced versions
     log = {
       info: (...args) => console.log(chalk.cyan('[INFO]'), ...args),
       success: (...args) => console.log(chalk.green('[SUCCESS]'), ...args),
@@ -29,6 +31,9 @@ let log = {
   }
 })();
 
+// Export a proxy to always call the latest version of log functions
 module.exports = new Proxy({}, {
   get: (_, prop) => (...args) => log[prop](...args),
 });
+
+
