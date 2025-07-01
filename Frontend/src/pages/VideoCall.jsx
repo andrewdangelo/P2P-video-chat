@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Container, Typography, Box, Button, Stack } from "@mui/material";
+import { Container, Typography, Box } from "@mui/material";
 import { useSelector, useDispatch } from "react-redux";
 import {
   leaveCall,
@@ -10,6 +10,7 @@ import {
 import { io } from "socket.io-client";
 
 import ControlBar from "../components/ControlBar";
+import VideoBox from "../components/VideoBox";
 
 const SOCKET_URL = import.meta.env.VITE_SIGNALING_SERVER_URL;
 
@@ -23,16 +24,15 @@ export default function VideoCall() {
   const navigate = useNavigate();
 
   const socketRef = useRef(null);
-  const localVideoRef = useRef(null);
   const localStream = useRef(null);
   const peerConnections = useRef({});
   const remotePeersRef = useRef({});
   const [remotePeers, setRemotePeers] = useState({});
   const [status, setStatus] = useState("Initializing...");
+  const [localStreamState, setLocalStreamState] = useState(null);
 
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const screenTrackRef = useRef(null);
-
 
   const removePeer = useCallback((id) => {
     const pc = peerConnections.current[id];
@@ -100,10 +100,14 @@ export default function VideoCall() {
           const existing = prev[peerId] || {
             stream: new MediaStream(),
             videoEnabled: true,
+            audioEnabled: true,
           };
           const stream = existing.stream;
           e.streams[0].getTracks().forEach((track) => stream.addTrack(track));
-          const updated = { ...prev, [peerId]: { ...existing, stream } };
+          const updated = {
+            ...prev,
+            [peerId]: { ...existing, stream },
+          };
           remotePeersRef.current = updated;
           return updated;
         });
@@ -142,23 +146,34 @@ export default function VideoCall() {
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
         localStream.current = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+        setLocalStreamState(stream);
+
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.enabled = videoOn;
         }
 
-        socketRef.current.emit("join-room", { roomId: callId }, ({ success }) => {
-          if (success) {
-            const stream = localStream.current;
-            socketRef.current.emit("media-toggle", {
-              type: "video",
-              enabled: stream.getVideoTracks()[0]?.enabled ?? true,
-            });
-            socketRef.current.emit("media-toggle", {
-              type: "audio",
-              enabled: stream.getAudioTracks()[0]?.enabled ?? true,
-            });
+        const audioTrack = stream.getAudioTracks()[0];
+        if (audioTrack) {
+          audioTrack.enabled = audioOn;
+        }
+
+        socketRef.current.emit(
+          "join-room",
+          { roomId: callId },
+          ({ success }) => {
+            if (success) {
+              socketRef.current.emit("media-toggle", {
+                type: "video",
+                enabled: stream.getVideoTracks()[0]?.enabled ?? true,
+              });
+              socketRef.current.emit("media-toggle", {
+                type: "audio",
+                enabled: stream.getAudioTracks()[0]?.enabled ?? true,
+              });
+            }
           }
-        });
+        );
 
         socketRef.current.on("room-full", () => {
           setStatus("Room is full");
@@ -205,27 +220,42 @@ export default function VideoCall() {
           }
         });
 
-        socketRef.current.on("media-toggle", ({ from, type, enabled }) => {
-          setRemotePeers((prev) => {
-            const peer = prev[from];
-            if (!peer) return prev;
+        socketRef.current.on(
+          "media-toggle",
+          ({ from, type, enabled }) => {
+            setRemotePeers((prev) => {
+              const peer = prev[from];
+              if (!peer) return prev;
 
-            if (type === "audio" && peer.stream) {
-              peer.stream.getAudioTracks().forEach((t) => (t.enabled = enabled));
-            }
-
-            let updated = prev;
-            if (type === "video") {
-              updated = {
+              let updated = {
                 ...prev,
-                [from]: { ...peer, videoEnabled: enabled },
+                [from]: {
+                  ...peer,
+                  videoEnabled:
+                    type === "video" ? enabled : peer.videoEnabled,
+                  audioEnabled:
+                    type === "audio" ? enabled : peer.audioEnabled ?? true,
+                },
               };
-            }
 
-            remotePeersRef.current = updated;
-            return updated;
-          });
-        });
+              if (peer.stream) {
+                if (type === "audio") {
+                  peer.stream.getAudioTracks().forEach(
+                    (t) => (t.enabled = enabled)
+                  );
+                }
+                if (type === "video") {
+                  peer.stream.getVideoTracks().forEach(
+                    (t) => (t.enabled = enabled)
+                  );
+                }
+              }
+
+              remotePeersRef.current = updated;
+              return updated;
+            });
+          }
+        );
       })
       .catch((err) => {
         console.error("[Media] Failed to get user media:", err);
@@ -233,11 +263,11 @@ export default function VideoCall() {
       });
 
     return () => {
-       if (socketRef.current) socketRef.current.disconnect();
-        Object.keys(peerConnections.current).forEach((id) => removePeer(id));
-        peerConnections.current = {};
-        localStream.current?.getTracks().forEach((track) => track.stop());
-      };
+      if (socketRef.current) socketRef.current.disconnect();
+      Object.keys(peerConnections.current).forEach((id) => removePeer(id));
+      peerConnections.current = {};
+      localStream.current?.getTracks().forEach((track) => track.stop());
+    };
   }, [callId, createPeerConnection, dispatch, removePeer]);
 
   const toggleVideo = () => {
@@ -245,9 +275,7 @@ export default function VideoCall() {
     if (track) {
       track.enabled = !track.enabled;
       dispatch(setVideoEnabled(track.enabled));
-
       console.log("[VideoCall] Toggling video:", track.enabled);
-
       socketRef.current?.emit("media-toggle", {
         type: "video",
         enabled: track.enabled,
@@ -260,9 +288,7 @@ export default function VideoCall() {
     if (track) {
       track.enabled = !track.enabled;
       dispatch(setAudioEnabled(track.enabled));
-
       console.log("[VideoCall] Toggling audio:", track.enabled);
-
       socketRef.current?.emit("media-toggle", {
         type: "audio",
         enabled: track.enabled,
@@ -270,77 +296,72 @@ export default function VideoCall() {
     }
   };
 
-
   const toggleScreenShare = async () => {
-      if (!isScreenSharing) {
-        try {
-          const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-          const screenTrack = screenStream.getVideoTracks()[0];
-
-          screenTrackRef.current = screenTrack;
-
-          // Replace track in localStream
-          const senderList = [];
-          Object.values(peerConnections.current).forEach((pc) => {
-            const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-            if (sender) {
-              sender.replaceTrack(screenTrack);
-              senderList.push(sender);
-            }
+    if (!isScreenSharing) {
+      try {
+        const screenStream =
+          await navigator.mediaDevices.getDisplayMedia({
+            video: true,
           });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        screenTrackRef.current = screenTrack;
 
-          // Replace track in local preview
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = new MediaStream([screenTrack]);
-          }
-
-          screenTrack.onended = () => {
-            stopScreenShare();
-          };
-
-          setIsScreenSharing(true);
-        } catch (err) {
-          console.error("Error sharing screen:", err);
-        }
-      } else {
-        stopScreenShare();
-      }
-    };
-
-    const stopScreenShare = () => {
-      const videoTrack = localStream.current?.getVideoTracks()[0];
-
-      if (videoTrack) {
         Object.values(peerConnections.current).forEach((pc) => {
-          const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+          const sender = pc
+            .getSenders()
+            .find((s) => s.track?.kind === "video");
           if (sender) {
-            sender.replaceTrack(videoTrack);
+            sender.replaceTrack(screenTrack);
           }
         });
 
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = new MediaStream([videoTrack]);
+        if (localStreamState) {
+          setLocalStreamState(new MediaStream([screenTrack]));
         }
 
-        screenTrackRef.current?.stop();
-        screenTrackRef.current = null;
-        setIsScreenSharing(false);
-      }
-    };
+        screenTrack.onended = () => {
+          stopScreenShare();
+        };
 
+        setIsScreenSharing(true);
+      } catch (err) {
+        console.error("Error sharing screen:", err);
+      }
+    } else {
+      stopScreenShare();
+    }
+  };
+
+  const stopScreenShare = () => {
+    const videoTrack = localStream.current?.getVideoTracks()[0];
+
+    if (videoTrack) {
+      Object.values(peerConnections.current).forEach((pc) => {
+        const sender = pc
+          .getSenders()
+          .find((s) => s.track?.kind === "video");
+        if (sender) {
+          sender.replaceTrack(videoTrack);
+        }
+      });
+
+      setLocalStreamState(new MediaStream([videoTrack]));
+      screenTrackRef.current?.stop();
+      screenTrackRef.current = null;
+      setIsScreenSharing(false);
+    }
+  };
 
   const handleLeaveCall = () => {
     Object.keys(peerConnections.current).forEach((id) => removePeer(id));
     socketRef.current?.disconnect();
     localStream.current?.getTracks().forEach((track) => track.stop());
     dispatch(leaveCall());
-
-    //force reload to reset the app state
     window.location.href = "/";
   };
 
   return (
-  <Container maxWidth="lg" sx={{ position: "relative", minHeight: "100vh" }}>
+    <Container maxWidth="lg" sx={{ position: "relative", minHeight: "100vh" }}>
       <Box textAlign="center" mt={4}>
         <Typography variant="h5" gutterBottom>
           Room: {callId}
@@ -353,47 +374,48 @@ export default function VideoCall() {
         </Typography>
       </Box>
 
-      <Box display="flex" justifyContent="center" mt={4} gap={4} flexWrap="wrap">
-        <video
-          ref={localVideoRef}
-          autoPlay
-          playsInline
-          muted
-          width="300"
-          style={{ borderRadius: 8, background: "#000" }}
-        />
-        {Object.entries(remotePeers).map(([id, peer]) =>
-          peer.videoEnabled ? (
-            <video
-              key={id}
-              ref={(el) => {
-                if (el && peer.stream && el.srcObject !== peer.stream) {
-                  el.srcObject = peer.stream;
-                }
-              }}
-              autoPlay
-              playsInline
-              width="300"
-              style={{ borderRadius: 8, background: "#000" }}
-            />
-          ) : (
-            <Box
-              key={id}
-              width={300}
-              height={225}
-              borderRadius={2}
-              bgcolor="#222"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              color="white"
-              fontSize={16}
-              fontWeight={500}
-            >
-              Camera Off
-            </Box>
-          )
+      <Box
+        display="flex"
+        justifyContent="center"
+        mt={4}
+        gap={4}
+        flexWrap="wrap"
+      >
+        {localStreamState ? (
+          <VideoBox
+            stream={localStreamState}
+            videoEnabled={videoOn}
+            audioEnabled={audioOn}
+            label={`${displayName || "You"}`}
+            muted={true}
+          />
+        ) : (
+          <Box
+            width={300}
+            height={225}
+            borderRadius={2}
+            bgcolor="#222"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            color="white"
+            fontSize={16}
+            fontWeight={500}
+          >
+            Loading video...
+          </Box>
         )}
+
+        {Object.entries(remotePeers).map(([id, peer]) => (
+          <VideoBox
+            key={id}
+            stream={peer.stream}
+            videoEnabled={peer.videoEnabled}
+            audioEnabled={peer.audioEnabled ?? true}
+            label={`User ${id.slice(-4)}`}
+            muted={false}
+          />
+        ))}
       </Box>
 
       <ControlBar
@@ -409,3 +431,4 @@ export default function VideoCall() {
     </Container>
   );
 }
+
