@@ -19,6 +19,9 @@ export default function VideoBox({
   audioEnabled,
   label,
   muted = false,
+  videoWidth = 300,
+  videoHeight = 225,
+  
 }) {
   const videoRef = (el) => {
     if (el && stream && el.srcObject !== stream) {
@@ -28,8 +31,8 @@ export default function VideoBox({
 
     return (
     <Box
-        width={300}
-        height={225}
+        width={ videoWidth }
+        height={ videoHeight }
         borderRadius={2}
         bgcolor="#000"
         overflow="hidden"

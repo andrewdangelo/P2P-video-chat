@@ -1,6 +1,22 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { 
+  useEffect, 
+  useRef, 
+  useState, 
+  useCallback 
+} from "react";
 import { useNavigate } from "react-router-dom";
-import { Container, Typography, Box } from "@mui/material";
+import { 
+  Container, 
+  Typography, 
+  Box, 
+  Tooltip, 
+  Button, 
+  IconButton, 
+  Modal, 
+  Stack 
+} from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useSelector, useDispatch } from "react-redux";
 import {
   leaveCall,
@@ -10,7 +26,9 @@ import {
 import { io } from "socket.io-client";
 
 import ControlBar from "../components/ControlBar";
-import VideoBox from "../components/VideoBox";
+import VideoLayout from "../components/VideoLayout";
+
+
 
 const SOCKET_URL = import.meta.env.VITE_SIGNALING_SERVER_URL;
 
@@ -33,6 +51,25 @@ export default function VideoCall() {
 
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const screenTrackRef = useRef(null);
+
+  const [infoModalOpen, setInfoModalOpen] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const handleOpenInfoModal = () => {
+    setInfoModalOpen(true);
+  };
+
+  const handleCloseInfoModal = () => {
+    setInfoModalOpen(false);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(callId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
 
   const removePeer = useCallback((id) => {
     const pc = peerConnections.current[id];
@@ -360,63 +397,52 @@ export default function VideoCall() {
     window.location.href = "/";
   };
 
+  const remotePeersArray = Object.entries(remotePeers).map(
+    ([id, peer]) => ({
+      id,
+      stream: peer.stream,
+      videoEnabled: peer.videoEnabled,
+      audioEnabled: peer.audioEnabled,
+    })
+  );
+
+  const isAlone = remotePeersArray.length === 0;
+
+
   return (
-    <Container maxWidth="lg" sx={{ position: "relative", minHeight: "100vh" }}>
+    <Container
+      maxWidth="lg"
+      sx={{ position: "relative", minHeight: "100vh" }}
+    >
+      {/* Info Button */}
+      <Box
+        position="absolute"
+        top={0}
+        left={0}
+        zIndex={10}
+      >
+        <Tooltip title="Room Info">
+          <IconButton onClick={handleOpenInfoModal} color="primary">
+            <InfoOutlinedIcon />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
       <Box textAlign="center" mt={4}>
         <Typography variant="h5" gutterBottom>
           Room: {callId}
         </Typography>
-        <Typography variant="subtitle2" color="text.secondary">
-          {displayName ? `You are: ${displayName}` : ""}
-        </Typography>
-        <Typography sx={{ mt: 1 }} color="text.secondary">
-          {status}
-        </Typography>
       </Box>
 
-      <Box
-        display="flex"
-        justifyContent="center"
-        mt={4}
-        gap={4}
-        flexWrap="wrap"
-      >
-        {localStreamState ? (
-          <VideoBox
-            stream={localStreamState}
-            videoEnabled={videoOn}
-            audioEnabled={audioOn}
-            label={`${displayName || "You"}`}
-            muted={true}
-          />
-        ) : (
-          <Box
-            width={300}
-            height={225}
-            borderRadius={2}
-            bgcolor="#222"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            color="white"
-            fontSize={16}
-            fontWeight={500}
-          >
-            Loading video...
-          </Box>
-        )}
-
-        {Object.entries(remotePeers).map(([id, peer]) => (
-          <VideoBox
-            key={id}
-            stream={peer.stream}
-            videoEnabled={peer.videoEnabled}
-            audioEnabled={peer.audioEnabled ?? true}
-            label={`User ${id.slice(-4)}`}
-            muted={false}
-          />
-        ))}
-      </Box>
+      <VideoLayout
+        localStream={localStreamState}
+        localVideoOn={videoOn}
+        localAudioOn={audioOn}
+        localLabel={displayName || "You"}
+        remotePeers={remotePeersArray}
+        callId={callId}
+        isAlone={isAlone}
+      />
 
       <ControlBar
         videoOn={videoOn}
@@ -428,6 +454,63 @@ export default function VideoCall() {
         onRestartIce={restartIce}
         onLeaveCall={handleLeaveCall}
       />
+
+      <Modal
+        open={infoModalOpen}
+        onClose={handleCloseInfoModal}
+        aria-labelledby="invite-title"
+        aria-describedby="invite-description"
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            bgcolor: "background.paper",
+            borderRadius: 2,
+            boxShadow: 24,
+            p: 4,
+            minWidth: 300,
+            textAlign: "center",
+          }}
+        >
+          <Typography id="invite-title" variant="h6" gutterBottom>
+            You’re alone in the call
+          </Typography>
+          <Typography
+            id="invite-description"
+            variant="subtitle1"
+            gutterBottom
+            color="text.secondary"
+          >
+            Share this Room ID with others:
+          </Typography>
+          <Stack direction="row" spacing={2} justifyContent="center" mt={2}>
+            <Typography
+              variant="body1"
+              sx={{
+                background: "#333",
+                color: "#fff",
+                px: 2,
+                py: 1,
+                borderRadius: 1,
+                fontFamily: "monospace",
+              }}
+            >
+              {callId}
+            </Typography>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleCopy}
+              startIcon={<ContentCopyIcon />}
+            >
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+          </Stack>
+        </Box>
+      </Modal>
     </Container>
   );
 }

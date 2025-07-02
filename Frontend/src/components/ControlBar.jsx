@@ -46,7 +46,7 @@ export default function ControlBar({
     <Box
       sx={{
         position: "absolute",
-        bottom: 50,
+        bottom: 25,
         left: "50%",
         transform: "translateX(-50%)",
         display: "flex",
