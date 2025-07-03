@@ -412,7 +412,7 @@ export default function VideoCall() {
   return (
     <Container
       maxWidth="lg"
-      sx={{ position: "relative", minHeight: "100vh" }}
+      sx={{ position: "relative", minHeight: "100vh", paddingTop: 2 }}
     >
       {/* Info Button */}
       <Box
@@ -428,11 +428,7 @@ export default function VideoCall() {
         </Tooltip>
       </Box>
 
-      <Box textAlign="center" mt={4}>
-        <Typography variant="h5" gutterBottom>
-          Room: {callId}
-        </Typography>
-      </Box>
+      
 
       <VideoLayout
         localStream={localStreamState}

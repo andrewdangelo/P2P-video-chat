@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -8,30 +8,34 @@ import {
   FormControlLabel,
   Switch,
   Stack,
-} from '@mui/material';
-import { useNavigate, useParams } from 'react-router-dom';
-import { v4 as uuidv4 } from 'uuid';
+} from "@mui/material";
+import { useNavigate, useParams } from "react-router-dom";
+import { v4 as uuidv4 } from "uuid";
 
-import { useDispatch, useSelector } from 'react-redux';
-import { joinCall, setAudioEnabled, setVideoEnabled } from '../features/call/callSlice';
+import { useDispatch, useSelector } from "react-redux";
+import {
+  joinCall,
+  setAudioEnabled,
+  setVideoEnabled,
+} from "../features/call/callSlice";
+
+import VideoBox from "../components/VideoBox";
 
 export default function Lobby() {
-  const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
-  const [localName, setLocalName] = useState('');
+  const [localName, setLocalName] = useState("");
   const videoOn = useSelector((state) => state.call.videoOn);
   const audioOn = useSelector((state) => state.call.audioOn);
-
 
   const { callId: routeCallId } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { displayName, callId: reduxCallId } = useSelector((state) => state.call);
+  const { displayName, callId: reduxCallId } = useSelector(
+    (state) => state.call
+  );
 
   const resolvedCallId = reduxCallId || routeCallId || uuidv4();
-
-  // {Todo:} Redux is not properly handling state updates for call start.
 
   useEffect(() => {
     let mediaStream;
@@ -42,9 +46,6 @@ export default function Lobby() {
         audio: true,
       });
       setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
     }
 
     getMedia();
@@ -52,9 +53,8 @@ export default function Lobby() {
     return () => {
       if (mediaStream) {
         mediaStream.getTracks().forEach((track) => track.stop());
-        console.log('[Lobby] Stopped local media tracks on unmount');
+        console.log("[Lobby] Stopped local media tracks on unmount");
       }
-      // dispatch(leaveCall());
     };
   }, [dispatch]);
 
@@ -76,7 +76,6 @@ export default function Lobby() {
     }
   };
 
-
   const handleStartCall = () => {
     const nameToUse = displayName || localName;
     if (!nameToUse.trim()) return;
@@ -90,7 +89,6 @@ export default function Lobby() {
       })
     );
 
-
     navigate(`/call/${resolvedCallId}`);
   };
 
@@ -100,18 +98,17 @@ export default function Lobby() {
         Set Up Your Call
       </Typography>
 
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        style={{
-          width: '100%',
-          borderRadius: '8px',
-          marginTop: '1rem',
-          background: '#000',
-        }}
-      />
+      <Box mt={2}>
+        <VideoBox
+          stream={stream}
+          videoEnabled={videoOn}
+          audioEnabled={audioOn}
+          label={localName || ""}
+          muted={true}
+          videoWidth="100%"
+          videoHeight="auto"
+        />
+      </Box>
 
       <Box mt={3}>
         <TextField
@@ -122,13 +119,22 @@ export default function Lobby() {
           margin="normal"
         />
 
-        <Stack direction="row" spacing={2} justifyContent="center" sx={{ my: 2 }}>
+        <Stack
+          direction="row"
+          spacing={2}
+          justifyContent="center"
+          sx={{ my: 2 }}
+        >
           <FormControlLabel
-            control={<Switch checked={videoOn} onChange={handleToggleVideo} />}
+            control={
+              <Switch checked={videoOn} onChange={handleToggleVideo} />
+            }
             label="Camera"
           />
           <FormControlLabel
-            control={<Switch checked={audioOn} onChange={handleToggleAudio} />}
+            control={
+              <Switch checked={audioOn} onChange={handleToggleAudio} />
+            }
             label="Microphone"
           />
         </Stack>

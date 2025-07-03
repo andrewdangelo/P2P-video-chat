@@ -25,7 +25,6 @@ export default function VideoLayout({
           audioEnabled={localAudioOn}
           label={localLabel}
           muted={true}
-          videoWidth="100%"
           videoHeight="100%"
         />
       </Box>
