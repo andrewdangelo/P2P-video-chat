@@ -410,8 +410,8 @@ export default function VideoCall() {
 
 
   return (
-    <Container
-      maxWidth="lg"
+    <Box
+      
       sx={{ position: "relative", minHeight: "100vh", paddingTop: 2 }}
     >
       {/* Info Button */}
@@ -427,8 +427,6 @@ export default function VideoCall() {
           </IconButton>
         </Tooltip>
       </Box>
-
-      
 
       <VideoLayout
         localStream={localStreamState}
@@ -507,7 +505,7 @@ export default function VideoCall() {
           </Stack>
         </Box>
       </Modal>
-    </Container>
+    </Box>
   );
 }
 
