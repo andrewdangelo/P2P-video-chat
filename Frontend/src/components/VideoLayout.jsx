@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Box } from "@mui/material";
 import VideoBox from "./VideoBox";
 
@@ -10,6 +11,26 @@ export default function VideoLayout({
   callId,
   isAlone,
 }) {
+
+  const [windowSize, setWindowSize] = useState({
+        width: window.innerWidth,
+        height: window.innerHeight,
+    });
+
+    useEffect(() => {
+        function handleResize() {
+            setWindowSize({
+            width: window.innerWidth,
+            height: window.innerHeight,
+            });
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+
+    
   if (isAlone) {
     return (
       <Box
@@ -53,8 +74,9 @@ export default function VideoLayout({
 
   const totalVideos = allVideos.length;
 
-  const screenWidth = window.innerWidth;
-  const screenHeight = window.innerHeight - 200;
+  const screenWidth = windowSize.width;
+  const screenHeight = windowSize.height - 200;
+  
   const gap = 24;
   const preferredAspectRatio = 16 / 9;
   const safetyScale = 0.98;
